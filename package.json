@@ -2,9 +2,11 @@
   "type": "module",
   "devDependencies": {
     "@jspm/generator": "^1.0.0-beta.30",
-    "@swc/cli": "^0.1.55",
-    "@swc/core": "^1.2.157",
+    "@swc/cli": "0.1",
+    "@swc/core": "1",
     "@tsconfig/svelte": "^3.0.0",
+    "es-module-lexer": "^0.10.4",
+    "magic-string": "^0.26.1",
     "mkdirp": "^1.0.4",
     "svelte": "3",
     "svelte-preprocess": "^4.10.4"
