@@ -1,5 +1,5 @@
 version = 0.1
-extensions = ["chomp@0.1:swc", "chomp@0.1:svelte", "chomp@0.1:jspm"]
+extensions = ["chomp@0.1:swc", "./svelte.js", "chomp@0.1:jspm"]
 
 [env]
 PACKAGE_MANAGER = "pnpm"
@@ -12,15 +12,15 @@ name = "build"
 deps = [":build:html"]
 
 [[task]]
-  name = "build:html"
-  template = "jspm"
-  target = "lib/index.html"
-  deps = ["src/index.html", ":build:svelte", ":build:typescript"]
-  [task.template-options]
-    env = ["browser", "development"]
-    preload = false
-    integrity = false
-    whitespace = true
+name = "build:html"
+template = "jspm"
+target = "lib/index.html"
+deps = ["src/index.html", ":build:svelte", ":build:typescript"]
+[task.template-options]
+env = ["browser", "development"]
+preload = false
+integrity = false
+whitespace = true
 
 [[task]]
 name = "build:typescript"
@@ -33,3 +33,5 @@ name = "build:svelte"
 template = "svelte"
 target = "lib/#.js"
 deps = ["src/#.svelte"]
+[task.template-options]
+svelte-config = true

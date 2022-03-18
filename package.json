@@ -1,9 +1,12 @@
 {
+  "type": "module",
   "devDependencies": {
-    "@jspm/generator": "^1.0.0-beta.28",
+    "@jspm/generator": "^1.0.0-beta.30",
     "@swc/cli": "^0.1.55",
-    "@swc/core": "^1.2.155",
+    "@swc/core": "^1.2.157",
+    "@tsconfig/svelte": "^3.0.0",
     "mkdirp": "^1.0.4",
-    "svelte": "3"
+    "svelte": "3",
+    "svelte-preprocess": "^4.10.4"
   }
 }
