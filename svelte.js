@@ -1,62 +1,70 @@
 Chomp.addExtension('chomp@0.1:npm');
 
-Chomp.registerTemplate('svelte', function ({ name, targets, deps, env, templateOptions: { svelteConfig = null, sourceMaps = true, autoInstall, ...invalid } }) {
+Chomp.registerTemplate('svelte', function ({ name, targets, deps, env, templateOptions: { sveltePreprocess = true, svelteConfig = null, sourceMaps = true, autoInstall, ...invalid } }) {
   if (Object.keys(invalid).length)
     throw new Error(`Invalid svelte template option "${Object.keys(invalid)[0]}"`);
   return [{
     name,
     targets,
-    deps: [...deps, ...ENV.CHOMP_EJECT ? ['npm:install'] : ['node_modules/svelte', 'node_modules/svelte-preprocess', 'node_modules/mkdirp']],
+    deps: [...deps, ...ENV.CHOMP_EJECT ? ['npm:install'] : ['node_modules/svelte', ...svelteConfig || sveltePreprocess ? ['node_modules/svelte-preprocess'] : []], 'node_modules/magic-string', 'node_modules/es-module-lexer'],
     env,
     engine: 'node',
     run: `    import { readFile, writeFile } from 'fs/promises';
-      import { compile, preprocess } from 'svelte/compiler';
-      import mkdirp from 'mkdirp';
-      import { dirname } from 'path';
+    import { compile${svelteConfig || sveltePreprocess ? ', preprocess' : ''} } from 'svelte/compiler';
+    import MagicString from 'magic-string';
+    import { parse } from 'es-module-lexer/js';
+    import mkdirp from 'mkdirp';
+    import { dirname, extname } from 'path';
 
-      ${svelteConfig ? `var { default: svelteConfigObj } = await import(${svelteConfig === true ? '"./svelte.config.js"' : svelteConfig});` : ''} 
+    ${svelteConfig
+      ? `const { default: svelteConfig } = await import(${svelteConfig === true ? '"./svelte.config.js"' : svelteConfig});`
+      : `const svelteConfig = {${sveltePreprocess ? ' preprocess: sveltePreprocess() ' : ''}};`}
 
-      const compilerOptions = {
-        css: false
-      };
+    const filename = process.env.DEP;
+    const compilerOptions = {
+      css: false,
+      filename
+    };
 
-			const filename = process.env.DEP;
-      const dependencies = [];
-			const svelte_options = { ...compilerOptions, filename };
-      let code = await readFile(filename, 'utf-8');
-
-			if (svelteConfigObj.preprocess) {
-				const processed = await preprocess(code, svelteConfigObj.preprocess, { filename });
-				if (processed.dependencies) dependencies.push(...processed.dependencies);
-				if (processed.map) svelte_options.sourcemap = processed.map;
-				code = processed.code;
-			}
-
-      try {
-        var result = compile(code, svelte_options);
-      } catch (err) {
-        if (err.frame) {
-          console.log(err.frame);
-          throw err.message;
-        } else {
-          throw err;
+    const { code, map } = await preprocess(await readFile(filename, 'utf-8'), [{
+      // preprocessor to convert imports into .js extensions
+      // (would be great to have this as a community extension)
+      script: ({ content, filename }) => {
+        const [imports] = parse(content);
+        const s = new MagicString(content, { filename });
+        for (const impt of imports) {
+          if (impt.n && (impt.n.startsWith('./') || impt.n.startsWith('../')))
+            s.overwrite(impt.e - extname(impt.n).length, impt.e, '.js');
         }
+        return { code: s.toString(), map: s.generateMap() };
       }
+    }, ...svelteConfig.preprocess ? [svelteConfig.preprocess] : []], { filename });
+    compilerOptions.sourcemap = map;
 
-      mkdirp.sync(dirname(process.env.TARGET));
-      const cssFile = process.env.TARGET.replace(/\\.js$/, ".css");
-      await Promise.all[
-        writeFile(process.env.TARGET, result.js.code),
-        writeFile(cssFile, result.css.code)${sourceMaps ? `,
-        writeFile(process.env.TARGET + ".map", JSON.stringify(result.js.map)),
-        writeFile(cssFile + ".map", JSON.stringify(result.css.map))` : ''}
-      ];
-    `
+    try {
+      var result = compile(code, compilerOptions);
+    } catch (err) {
+      if (err.frame) {
+        console.log(err.frame);
+        throw err.message;
+      } else {
+        throw err;
+      }
+    }
+
+    const cssFile = process.env.TARGET.replace(/\\.js$/, ".css");
+    await Promise.all[
+      writeFile(process.env.TARGET, result.js.code),
+      writeFile(cssFile, result.css.code)${sourceMaps ? `,
+      writeFile(process.env.TARGET + ".map", JSON.stringify(result.js.map)),
+      writeFile(cssFile + ".map", JSON.stringify(result.css.map))` : ''}
+    ];
+`
   }, ...ENV.CHOMP_EJECT ? [] : [{
     template: 'npm',
     templateOptions: {
       autoInstall,
-      packages: ['svelte@3', 'svelte-preprocess', 'mkdirp'],
+      packages: ['svelte@3', ...svelteConfig || sveltePreprocess ? ['svelte-preprocess'] : [], 'magic-string', 'es-module-lexer'],
       dev: true
     }
   }]];
